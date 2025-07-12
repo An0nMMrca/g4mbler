@@ -5,7 +5,7 @@ package.domain = org.example
 source.dir = .
 version = 1.0.0
 requirements = python3,kivy,numpy,cython
-icon.filename = icons/app_icon.png
+icon.filename = icons/icon.png
 orientation = portrait
 fullscreen = 1
 
