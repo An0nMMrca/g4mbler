@@ -1,11 +1,11 @@
-name: Android APK Build with Buildozer
+name: Build Android APK with Buildozer
 
 on:
   push:
   pull_request:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,18 +15,25 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip git zip unzip openjdk-17-jdk libgl1-mesa-dev
-          python3 -m pip install --upgrade pip
-          pip install buildozer cython wheel
+          sudo apt-get upgrade -y
+          sudo apt-get install -y python3-pip git unzip openjdk-17-jdk wget zip libncurses6 libstdc++6 libffi-dev
 
-      - name: Install Android SDK and accept licenses
+      - name: Upgrade pip and install Buildozer + dependencies
+        run: |
+          python3 -m pip install --upgrade pip setuptools wheel
+          pip install --upgrade buildozer kivy cython numpy scikit-learn
+
+      - name: Setup Android SDK command line tools
         run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
-          curl -O https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-          unzip -q commandlinetools-linux-8512546_latest.zip
-          rm commandlinetools-linux-8512546_latest.zip
+          wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O commandlinetools.zip
+          unzip -q commandlinetools.zip
+          rm commandlinetools.zip
           mv cmdline-tools latest
+
+      - name: Accept licenses and install Android SDK packages
+        run: |
           export ANDROID_SDK_ROOT=$HOME/android-sdk
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.0"
@@ -34,14 +41,19 @@ jobs:
       - name: Set environment variables
         run: |
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/android-sdk/emulator:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" >> $GITHUB_ENV
 
-      - name: Build APK
-        run: buildozer android debug
+      - name: Build APK with Buildozer (retry up to 3 times)
+        run: |
+          for i in 1 2 3; do
+            buildozer -v android debug && break || sleep 60
+          done
+
+      - name: List APK files
+        run: ls -lh bin || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: g4mbler-apk
+          name: slotprediksnapp-apk
           path: bin/*.apk
-
