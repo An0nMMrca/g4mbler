@@ -16,32 +16,30 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get upgrade -y
-          sudo apt-get install -y python3-pip git unzip openjdk-17-jdk wget zip libncurses6 libstdc++6 libffi-dev
+          sudo apt-get install -y python3-pip git unzip openjdk-17-jdk curl wget
 
-      - name: Upgrade pip and install Buildozer + dependencies
+      - name: Upgrade pip and install Python dependencies
         run: |
           python3 -m pip install --upgrade pip setuptools wheel
           pip install --upgrade buildozer kivy cython numpy scikit-learn
 
-      - name: Setup Android SDK command line tools
+      - name: Setup Android SDK and accept licenses
         run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O commandlinetools.zip
+          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
           unzip -q commandlinetools.zip
           rm commandlinetools.zip
           mv cmdline-tools latest
-
-      - name: Accept licenses and install Android SDK packages
-        run: |
           export ANDROID_SDK_ROOT=$HOME/android-sdk
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.0"
 
-      - name: Set environment variables
+      - name: Export environment variables
         run: |
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/android-sdk/emulator:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
       - name: Build APK with Buildozer (retry up to 3 times)
         run: |
@@ -49,11 +47,14 @@ jobs:
             buildozer -v android debug && break || sleep 60
           done
 
-      - name: List APK files
-        run: ls -lh bin || true
+      - name: Show all files recursively
+        run: ls -laR
+
+      - name: Show files in bin folder
+        run: ls -laR bin/
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: slotprediksnapp-apk
-          path: bin/*.apk
+          path: bin/**/*.apk
